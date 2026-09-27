@@ -158,7 +158,7 @@ def main():
                with_credit=True),
         frame_round_trip(),
         frame_next(),
-        frame_cta(("Follow for one", "every day")),
+        frame_cta(("Save this -", "Voyager hits one", "light-day on Nov 18")),
     ]
     finish(frames, OUT, "w4-voyager-light-day", cover_idx=4)
 
