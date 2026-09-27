@@ -95,6 +95,30 @@ def frame_cta(lines=("Follow for one", "every day"), seed=99):
     return img
 
 
+def bookmark(d, cx, cy, h, fill=ACC, width=None):
+    """Lesezeichen-Umriss wie das Instagram-Speichern-Symbol (Hoehe h, Mittelpunkt cx/cy)."""
+    w = h * 0.72
+    x0, x1, y0, y1 = cx - w / 2, cx + w / 2, cy - h / 2, cy + h / 2
+    pts = [(x0, y0), (x1, y0), (x1, y1), (cx, y1 - h * 0.28), (x0, y1), (x0, y0)]
+    d.line(pts, fill=fill, width=width or max(2, int(h * 0.08)), joint="curve")
+
+
+def frame_save(lines, sub="Follow @theorbitlog for more", seed=98):
+    """Endframe mit Speicheranreiz (ab 27.09.2026 Standard statt reinem Follow-CTA):
+    Lesezeichen-Symbol, 2-3 Zeilen mit konkretem Grund zum Speichern, Follow als Zusatz."""
+    img, _ = new_frame(seed)
+    d = ImageDraw.Draw(img)
+    bookmark(d, W // 2, TOP_SAFE + int(H * 0.17), 150 * S)
+    fo = f(62 * S, bold=True)
+    y = TOP_SAFE + int(H * 0.30)
+    for n, ln in enumerate(lines):
+        ctext(d, ln, fo, ACC if n == 0 else FG, y)
+        y += 78 * S
+    ctext(d, sub, f(34 * S), SEC, y + 40 * S)
+    footer_handle(d)
+    return img
+
+
 # ---------------------------------------------------------------- Kugeln
 
 def blob(img, cx, cy, rx, ry, color, blur=10, alpha=255):
