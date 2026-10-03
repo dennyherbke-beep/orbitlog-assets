@@ -119,6 +119,32 @@ def frame_save(lines, sub="Follow @theorbitlog for more", seed=98):
     return img
 
 
+def header_band(img, lines, accent, y=None):
+    """Feste Kopfzeile fuer Animations-Reels (ab Woche 6, docs/reel-algorithmus.md): Marke + Handle,
+    darunter die Schlagzeile (Liste von Zeilen); das Wort `accent` wird in ACC gesetzt."""
+    d = ImageDraw.Draw(img)
+    y = TOP_SAFE if y is None else y
+    ring_mark(img, 120 * S, y + 34 * S, 15 * S)
+    d = ImageDraw.Draw(img)
+    d.text((170 * S, y + 4 * S), "Orbit Log", font=f(34 * S, bold=True), fill=FG)
+    d.text((170 * S, y + 46 * S), "@theorbitlog", font=fmono(22 * S), fill=SEC)
+    fo = f(60 * S, bold=True)
+    y += 120 * S
+    for ln in lines:
+        x = (W - d.textlength(ln, font=fo)) / 2
+        if accent and accent in ln:
+            pre, post = ln.split(accent, 1)
+            d.text((x, y), pre, font=fo, fill=FG)
+            x += d.textlength(pre, font=fo)
+            d.text((x, y), accent, font=fo, fill=ACC)
+            x += d.textlength(accent, font=fo)
+            d.text((x, y), post, font=fo, fill=FG)
+        else:
+            d.text((x, y), ln, font=fo, fill=FG)
+        y += 72 * S
+    return y
+
+
 # ---------------------------------------------------------------- Kugeln
 
 def blob(img, cx, cy, rx, ry, color, blur=10, alpha=255):
