@@ -211,9 +211,10 @@ def tex_moon():
 
 # ---------------------------------------------------------------- Export
 
-def finish(frames, out, prefix, cover_idx):
+def finish(frames, out, prefix, cover_idx, motion=False):
     """Speichert frames (1080x1920) als <prefix>-NN.png, Montage, Cover (frames[cover_idx])
-    und baut <prefix>.mp4 (30 fps, 2,5 s/Frame, stille AAC-Spur - keine lizenzierte Musik)."""
+    und baut <prefix>.mp4 (30 fps, 2,5 s/Frame, stille AAC-Spur - keine lizenzierte Musik).
+    motion=True (ab Woche 6): langsamer Zoom auf jedem Frame statt Standbild (Watch-Time)."""
     import imageio_ffmpeg
 
     out = Path(out)
@@ -231,11 +232,16 @@ def finish(frames, out, prefix, cover_idx):
     mont.save(out / f"{prefix}_montage.png")
 
     total = len(small) * SEC_PER_FRAME
+    vf = "fps=30,format=yuv420p"
+    if motion:   # 2x hochskalieren gegen Zoom-Ruckeln, Zoom 1.00 -> ~1.06 je Frame, zentriert
+        n = int(SEC_PER_FRAME * 30)
+        vf = (f"scale=2160:3840,zoompan=z='min(zoom+0.0008,1.06)':d={n}:s=1080x1920:fps=30"
+              ":x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)',format=yuv420p")
     subprocess.run([
         imageio_ffmpeg.get_ffmpeg_exe(), "-y", "-loglevel", "error",
         "-framerate", f"1/{SEC_PER_FRAME}", "-i", str(out / f"{prefix}-%02d.png"),
         "-f", "lavfi", "-i", "anullsrc=r=44100:cl=stereo",
-        "-vf", "fps=30,format=yuv420p", "-c:v", "libx264", "-preset", "medium", "-crf", "18",
+        "-vf", vf, "-c:v", "libx264", "-preset", "medium", "-crf", "18",
         "-c:a", "aac", "-b:a", "128k", "-t", str(total), "-movflags", "+faststart",
         str(out / f"{prefix}.mp4"),
     ], check=True)
