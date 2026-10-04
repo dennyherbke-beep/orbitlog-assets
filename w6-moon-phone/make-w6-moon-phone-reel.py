@@ -151,7 +151,7 @@ def frame_bonus():
     ctext(d, "full: flat", f(32 * S, bold=True), SEC, GY + 190 * S, cx=W // 2 - 210 * S)
     ctext(d, "half: craters pop", f(32 * S, bold=True), ACC, GY + 190 * S, cx=W // 2 + 210 * S)
     stat(d, "Best detail:", "a half Moon",
-         "Shadows along the edge make craters stand out. Next one: Oct 18, in the evening sky.")
+         "Shadows along the edge make craters stand out. Try a few nights before or after full Moon.")
     ruler(d, 6)
     footer_handle(d)
     return img
