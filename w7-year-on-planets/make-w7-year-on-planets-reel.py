@@ -28,7 +28,7 @@ from PIL import Image, ImageDraw
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from brandkit import S, FG, SEC, ACC, HAIR, f, downscale
 from bodies import planet, star
-from reelkit import W as WS, new_frame, header_band
+from reelkit import W as WS, new_frame, header_band, cinematic
 
 OUT = Path(__file__).resolve().parent
 W, H, FPS = 1080, 1920, 30
@@ -137,15 +137,15 @@ def main():
         ff, "-y", "-loglevel", "error",
         "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{W}x{H}", "-r", str(FPS), "-i", "-",
         "-f", "lavfi", "-i", "anullsrc=r=44100:cl=stereo",
-        "-c:v", "libx264", "-preset", "medium", "-crf", "18", "-pix_fmt", "yuv420p",
+        "-c:v", "libx264", "-preset", "medium", "-crf", "20", "-maxrate", "12M", "-bufsize", "24M", "-pix_fmt", "yuv420p",
         "-c:a", "aac", "-b:a", "128k", "-t", f"{DUR:.2f}", "-movflags", "+faststart", str(out)],
         stdin=subprocess.PIPE)
     for i in range(n):
-        proc.stdin.write(frame(bg, sprites, i / FPS).tobytes())
+        proc.stdin.write(cinematic(frame(bg, sprites, i / FPS), i).tobytes())
     proc.stdin.close()
     proc.wait()
-    frame(bg, sprites, 5.5).save(OUT / "w7-year-on-planets-cover.png")
-    frame(bg, sprites, DUR - 0.1).save(Path(os.environ.get("CHECK_DIR", OUT)) / "_check-year-end.png")
+    cinematic(frame(bg, sprites, 5.5), 0).save(OUT / "w7-year-on-planets-cover.png")
+    cinematic(frame(bg, sprites, DUR - 0.1), 0).save(Path(os.environ.get("CHECK_DIR", OUT)) / "_check-year-end.png")
     print(f"saved {out.name} ({DUR:.1f} s, {n} frames) + cover")
 
 

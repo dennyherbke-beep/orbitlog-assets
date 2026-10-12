@@ -37,7 +37,7 @@ from PIL import Image, ImageChops, ImageDraw
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from brandkit import S, FG, SEC, ACC, HAIR, f, downscale
 from bodies import planet
-from reelkit import W as WS, new_frame, header_band, blob
+from reelkit import W as WS, new_frame, header_band, blob, cinematic
 
 OUT = Path(__file__).resolve().parent
 W, H = 1080, 1920
@@ -58,7 +58,7 @@ BODIES = [("Mercury", "mercury", [], ""), ("Venus", "venus", [], ""),
                                 ("Miranda", "moon", 0.49, 115, 20), ("Titania", "moon", 0.42, -120, -40),
                                 ("Oberon", "mercury", 0.30, 10, 55)], "*"),
           ("Neptune", "neptune", [("Triton", "mercury", 0.89, -20, 10), ("Proteus", "moon", 0.49, 90, -35)], "*"),
-          ("Pluto", "moon", [("Charon", "mercury", 7.16, 0, 0)], "")]
+          ("Pluto", "pluto", [("Charon", "charon", 7.16, 0, 0)], "")]
 GRID_TOP, CELL_W, CELL_H = 540, 340, 330
 GROUND = 250
 R = 900
@@ -168,14 +168,14 @@ def main():
         ff, "-y", "-loglevel", "error",
         "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{W}x{H}", "-r", str(FPS), "-i", "-",
         "-f", "lavfi", "-i", "anullsrc=r=44100:cl=stereo",
-        "-c:v", "libx264", "-preset", "medium", "-crf", "18", "-pix_fmt", "yuv420p",
+        "-c:v", "libx264", "-preset", "medium", "-crf", "20", "-maxrate", "12M", "-bufsize", "24M", "-pix_fmt", "yuv420p",
         "-c:a", "aac", "-b:a", "128k", "-t", f"{LOOP:.2f}", "-movflags", "+faststart", str(out)],
         stdin=subprocess.PIPE)
     for i in range(n):
-        proc.stdin.write(frame(bg, surf, moons, i / FPS).convert("RGB").tobytes())
+        proc.stdin.write(cinematic(frame(bg, surf, moons, i / FPS), i).tobytes())
     proc.stdin.close()
     proc.wait()
-    frame(bg, surf, moons, LOOP / 2).convert("RGB").save(OUT / "w7-moons-from-planets-cover.png")
+    cinematic(frame(bg, surf, moons, LOOP / 2), 0).save(OUT / "w7-moons-from-planets-cover.png")
     print(f"saved {out.name} ({LOOP:.1f} s, {n} frames) + cover")
 
 

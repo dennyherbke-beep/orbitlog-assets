@@ -37,7 +37,7 @@ from PIL import Image, ImageChops, ImageDraw
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from brandkit import S, FG, SEC, ACC, HAIR, f, downscale
 from bodies import planet
-from reelkit import W as WS, new_frame, header_band, blob
+from reelkit import W as WS, new_frame, header_band, blob, cinematic
 
 OUT = Path(__file__).resolve().parent
 W, H, FPS, LOOP = 1080, 1920, 30, 6.0
@@ -46,7 +46,7 @@ BODIES = [("Mercury", "mercury", "nothing", None, ""), ("Venus", "venus", "acid"
           ("Earth", "earth", "water", "water", ""), ("Mars", "mars", "dry-ice snow", "snow", ""),
           ("Jupiter", "jupiter", "ammonia hail", "hail", ""), ("Saturn", "saturn", "helium rain", "helium", "*"),
           ("Uranus", "uranus", "diamonds", "diamond", "*"), ("Neptune", "neptune", "diamonds", "diamond", "*"),
-          ("Pluto", "moon", "methane snow", "msnow", "")]
+          ("Pluto", "pluto", "methane snow", "msnow", "")]
 # Himmel: (oben, Horizont, Deckkraft, Wolkenfarbe oder None)
 SKY = {"Mercury": ((0, 0, 0), (0, 0, 0), 0, None),
        "Venus": ((168, 122, 52), (226, 182, 104), 0.95, (236, 206, 140)),
@@ -195,14 +195,14 @@ def main():
         ff, "-y", "-loglevel", "error",
         "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{W}x{H}", "-r", str(FPS), "-i", "-",
         "-f", "lavfi", "-i", "anullsrc=r=44100:cl=stereo",
-        "-c:v", "libx264", "-preset", "medium", "-crf", "18", "-pix_fmt", "yuv420p",
+        "-c:v", "libx264", "-preset", "medium", "-crf", "20", "-maxrate", "12M", "-bufsize", "24M", "-pix_fmt", "yuv420p",
         "-c:a", "aac", "-b:a", "128k", "-t", f"{LOOP:.2f}", "-movflags", "+faststart", str(out)],
         stdin=subprocess.PIPE)
     for i in range(n):
-        proc.stdin.write(frame(bg, parts, i / FPS).tobytes())
+        proc.stdin.write(cinematic(frame(bg, parts, i / FPS), i).tobytes())
     proc.stdin.close()
     proc.wait()
-    frame(bg, parts, 1.3).save(OUT / "w7-rain-on-planets-cover.png")
+    cinematic(frame(bg, parts, 1.3), 0).save(OUT / "w7-rain-on-planets-cover.png")
     print(f"saved {out.name} ({LOOP:.1f} s, {n} frames) + cover")
 
 

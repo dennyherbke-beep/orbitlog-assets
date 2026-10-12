@@ -33,7 +33,7 @@ from PIL import Image, ImageDraw
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from brandkit import S, FG, SEC, ACC, f, downscale
 from bodies import star
-from reelkit import new_frame, header_band
+from reelkit import new_frame, header_band, cinematic
 
 OUT = Path(__file__).resolve().parent
 W, H, FPS, DUR = 1080, 1920, 30, 15.0
@@ -169,17 +169,17 @@ def main():
         ff, "-y", "-loglevel", "error",
         "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{W}x{H}", "-r", str(FPS), "-i", "-",
         "-f", "lavfi", "-i", "anullsrc=r=44100:cl=stereo",
-        "-c:v", "libx264", "-preset", "medium", "-crf", "18", "-pix_fmt", "yuv420p",
+        "-c:v", "libx264", "-preset", "medium", "-crf", "20", "-maxrate", "12M", "-bufsize", "24M", "-pix_fmt", "yuv420p",
         "-c:a", "aac", "-b:a", "128k", "-t", f"{DUR:.2f}", "-movflags", "+faststart", str(out)],
         stdin=subprocess.PIPE)
     for i in range(n):
-        proc.stdin.write(frame(stat, sun, i / FPS).tobytes())
+        proc.stdin.write(cinematic(frame(stat, sun, i / FPS), i).tobytes())
     proc.stdin.close()
     proc.wait()
-    frame(stat, sun, 0.5).save(OUT / "w7-pluto-noon-cover.png")
+    cinematic(frame(stat, sun, 0.5), 0).save(OUT / "w7-pluto-noon-cover.png")
     chk = Path(os.environ.get("CHECK_DIR", OUT))
-    frame(stat, sun, 5.0).save(chk / "_check-noon-mid.png")
-    frame(stat, sun, DUR - 0.1).save(chk / "_check-noon-end.png")
+    cinematic(frame(stat, sun, 5.0), 0).save(chk / "_check-noon-mid.png")
+    cinematic(frame(stat, sun, DUR - 0.1), 0).save(chk / "_check-noon-end.png")
     print(f"saved {out.name} ({DUR:.1f} s, {n} frames) + cover")
 
 
