@@ -1,7 +1,7 @@
 """Umbau 16.10.2026 (Woche 8, Sa 24.10.): "Astronauts see 16 SUNRISES a day" als durchgehende Animation
 (Typ a Zaehler + Handlung) statt 8 Folien (make-w6-iss-sunrises-reel.py).
 Erde mit Tag-/Nachtseite (Sonne links), die ISS kreist in massstaeblicher Hoehe, faellt in den Erdschatten und
-kommt wieder heraus - jeder Austritt = Sonnenaufgang, Zaehler laeuft mit. ISS = freigestelltes NASA-Foto iss056e201248 (gemeinfrei, stark vergroessert). 24-h-Uhr beschleunigt nach der ersten
+kommt wieder heraus - jeder Austritt = Sonnenaufgang, Zaehler laeuft mit. Intro (2,5 s, 16.10. auf Dennys Wunsch): ganzes NASA-Foto gross mit Zoom. ISS = freigestelltes NASA-Foto iss056e201248 (gemeinfrei, stark vergroessert). 24-h-Uhr beschleunigt nach der ersten
 Runde. Vergleich "You: 1". Endzeile = Handlung (NASA Spot the Station). 14 s.
 
 Fakten: NASA Space Station Facts and Figures (~400 km Hoehe, ~28.000 km/h, ~90 Min. pro Runde, 16 Sonnenauf-
@@ -32,13 +32,15 @@ from reelkit import W as WS, new_frame, header_band, blob, cinematic
 OUT = Path(__file__).resolve().parent
 W, H = 1080, 1920
 FPS = 30
-LOOP = 14.0
+LOOP = 16.5
+INTRO = 2.5                                   # s: echtes NASA-Foto gross, dann Orbit-Animation
 ECX, ECY, ED = 540, 1000, 600                 # Erde
 R_ORB = ED / 2 * (6371 + 420) / 6371          # massstaeblich
 TILT = 0.40                                   # Bahnellipse: Hoehe/Breite
 PERIOD = 1.5                                  # h pro Runde
 ISS_PHOTO = Path(__file__).resolve().parent.parent / "textures" / "iss-nasa-iss056e201248.png"   # NASA, gemeinfrei
-ISS_W = 130                                   # px, stark vergroessert (im Bild vermerkt)
+ISS_FULL = ISS_PHOTO.parent / "iss-nasa-iss056e201248-full.jpg"                              # ganzes Foto (~large)
+ISS_W = 170                                   # px, stark vergroessert (im Bild vermerkt)
 TH0 = 0.0                                     # Start im Erdschatten am rechten Rand
 
 
@@ -98,7 +100,7 @@ def iss_sprites():
     ph = Image.open(ISS_PHOTO).convert("RGBA")
     ph = ph.resize((ISS_W, int(ph.height * ISS_W / ph.width)), Image.LANCZOS)
     rgb, a = ph.convert("RGB"), ph.getchannel("A")
-    lit = ImageEnhance.Brightness(rgb).enhance(1.15)
+    lit = ImageEnhance.Brightness(rgb).enhance(1.25)
     dark = ImageEnhance.Brightness(rgb).enhance(0.16)
     return (lit, a), (dark, a)
 
@@ -108,7 +110,71 @@ def draw_iss(im, x, y, sprite):
     im.paste(sp, (int(x - sp.width / 2), int(y - sp.height / 2)), a)
 
 
-def frame(bg, iss, t):
+def intro_background():
+    """Intro: Kopfzeile + Fusszeile wie im Reel, dazwischen das ganze NASA-Foto (ISS ueber dem Erdhorizont)."""
+    img, _ = new_frame(53)
+    header_band(img, ["Astronauts see 16", "SUNRISES a day"], "SUNRISES")
+    d = ImageDraw.Draw(img)
+    y = 1442 * S
+    note = "Real photo: NASA, Expedition 56, Oct 2018"
+    d.text(((WS - d.textlength(note, font=f(24 * S))) / 2, y), note, font=f(24 * S), fill=SEC)
+    cta = "Save this: find the ISS over your city"
+    d.text(((WS - d.textlength(cta, font=f(34 * S, bold=True))) / 2, y + 40 * S), cta,
+           font=f(34 * S, bold=True), fill=FG)
+    sub = "free: NASA “Spot the Station”"
+    d.text(((WS - d.textlength(sub, font=f(28 * S))) / 2, y + 92 * S), sub, font=f(28 * S), fill=ACC)
+    return downscale(img, W, H)
+
+
+PH_Y0, PH_H = 560, 760                        # Fotobereich
+
+
+def intro_photo():
+    ph = Image.open(ISS_FULL).convert("RGB")
+    w = int(ph.width * PH_H / ph.height)      # Hoehe fuellen, seitlich beschneiden (Station mittig)
+    return ph.resize((w, PH_H), Image.LANCZOS)
+
+
+def intro_frame(ibg, photo, t):
+    im = ibg.copy()
+    z = 1.0 + 0.10 * ease(t / INTRO)          # langsamer Zoom auf die Station
+    w, h = int(photo.width * z), int(photo.height * z)
+    ph = photo.resize((w, h), Image.LANCZOS)
+    cx, cy = w * 0.52, h * 0.42                # Bildmitte etwas oberhalb (Station)
+    crop = ph.crop((int(cx - W / 2), int(cy - PH_H * 0.42), int(cx - W / 2) + W, int(cy - PH_H * 0.42) + PH_H))
+    m = Image.new("L", (W, PH_H), 255)         # weiche Kanten oben/unten
+    md = ImageDraw.Draw(m)
+    for i in range(70):
+        a = int(255 * i / 70)
+        md.line([0, i, W, i], fill=a)
+        md.line([0, PH_H - 1 - i, W, PH_H - 1 - i], fill=a)
+    im.paste(crop, (0, PH_Y0), m)
+    d = ImageDraw.Draw(im)
+    st = dict(stroke_width=3, stroke_fill=(8, 10, 14))
+    a = 1.0                                   # Hook ab Frame 1 sichtbar
+    for j, (ln, fo, c) in enumerate([("This is the real ISS.", f(44, bold=True), FG),
+                                     ("It laps Earth every 90 minutes ↓", f(32), ACC)]):
+        d.text(((W - d.textlength(ln, font=fo)) / 2, PH_Y0 + PH_H - 150 + j * 58), ln, font=fo,
+               fill=tuple(int(v * a) for v in c), **st)
+    return im
+
+
+def frame(bg, iss, t, intro=None):
+    """Gesamtablauf: Foto-Intro -> Orbit-Animation -> Ueberblendung zurueck ins Foto (nahtloser Loop)."""
+    if intro is not None:
+        ibg, photo = intro
+        if t < INTRO - 0.5:
+            return intro_frame(ibg, photo, t)
+        if t < INTRO:
+            return Image.blend(intro_frame(ibg, photo, t), orbit_frame(bg, iss, 0.0), ease((t - INTRO + 0.5) / 0.5))
+        u = t - INTRO
+        if u > 13.5:
+            return Image.blend(orbit_frame(bg, iss, u), intro_frame(ibg, photo, 0.0), ease((u - 13.5) / 0.5))
+        return orbit_frame(bg, iss, u)
+    return orbit_frame(bg, iss, t)
+
+
+def orbit_frame(bg, iss, t):
     im = bg.copy()
     d = ImageDraw.Draw(im)
     h = hours(t)
@@ -173,12 +239,13 @@ def frame(bg, iss, t):
 def main():
     bg = background()
     iss = iss_sprites()
+    intro = (intro_background(), intro_photo())
     print("sunrises in 24 h:", sunrises(24.0))
     if "--preview" in sys.argv:
         prev = Path(sys.argv[sys.argv.index("--preview") + 1])
         prev.mkdir(parents=True, exist_ok=True)
-        for t in (0.6, 2.2, 7.0, 12.0):
-            cinematic(frame(bg, iss, t), 0).save(prev / f"iss-{t:.1f}.png")
+        for t in (0.3, 1.8, 2.3, 4.0, 9.5, 16.2):
+            cinematic(frame(bg, iss, t, intro), 0).save(prev / f"iss-{t:.1f}.png")
         print("preview saved")
         return
     ff = imageio_ffmpeg.get_ffmpeg_exe()
@@ -192,10 +259,10 @@ def main():
         "-c:a", "aac", "-b:a", "128k", "-t", f"{LOOP:.2f}", "-movflags", "+faststart", str(out)],
         stdin=subprocess.PIPE)
     for i in range(n):
-        proc.stdin.write(cinematic(frame(bg, iss, i / FPS), i).tobytes())
+        proc.stdin.write(cinematic(frame(bg, iss, i / FPS, intro), i).tobytes())
     proc.stdin.close()
     proc.wait()
-    cinematic(frame(bg, iss, 7.0), 0).save(OUT / "w6-iss-sunrises-loop-cover.png")
+    cinematic(frame(bg, iss, 1.8, intro), 0).save(OUT / "w6-iss-sunrises-loop-cover.png")
     print(f"saved {out.name} ({LOOP:.1f} s, {n} frames) + cover")
 
 
