@@ -1,4 +1,5 @@
 """Woche 11, Fr 13.11.2026: "You step onto Mars without a suit." (Provokations-Format, unbequeme Wahrheit; v2).
+Aenderung 12.11.2026: Einstieg direkt auf der Oberflaeche (Uhr 0:00) statt Anflug aus dem All.
 v1 (sieben Gruende neben einem rotierenden Mars) war laut Denny "langweilig" -> v2 mit Spannungskurve und laufender Uhr:
 Zoom vom All auf die Oberflaeche, eine Silhouette steht im Staub, die Uhr laeuft: 0 s Luft kocht, 15 s Bewusstlosigkeit
 (Vignette schliesst sich), ~2 min vorbei. Dann "With a suit?": Raureif am Bildrand (-60 Grad C), Strahlungsspuren (100x),
@@ -47,12 +48,13 @@ BEATS = [(0.0, "Day 1. The door opens.", "", FG),
          (19.4, "Still want a ticket?", "Comment YES or NO", ACC)]
 SAVE_AT = 22.0
 TOTAL = 24.6
+START = LAND - 1.2              # 12.11.: Video beginnt auf der Oberflaeche (Anflug aus dem All gestrichen, erstes Bild zaehlt)
 
 
 def clock(t):
     """Uhr auf dem Mars (Sekunden): echtzeitnah bis 15 s, dann schneller bis 2 min."""
     if t < LAND:
-        return None
+        return 0.0
     if t < 6.2:
         return (t - LAND) * 1.0
     if t < 9.6:
@@ -71,7 +73,10 @@ class Reel:
         stars, _ = new_frame(23)
         self.space = downscale(stars, W, H)
         self.mars = body_sprite("mars", 900, lon0=40, light=(-0.55, -0.35, 0.76))
-        self.surface = self.build_surface()
+        ground = self.build_surface()
+        self.surface, self.surface_suit = ground.copy(), ground.copy()
+        self.draw_figure(ImageDraw.Draw(self.surface))
+        self.draw_suit(ImageDraw.Draw(self.surface_suit))      # 12.11. (Denny): "with a suit" -> Figur traegt Anzug
         self.dust_tex = fbm(17, h=256, w=256, octaves=5, base=3)
         self.frost = self.build_frost()
         self.end = downscale(frame_save(["Save it before you", "buy a ticket to Mars"],
@@ -110,7 +115,6 @@ class Reel:
         halo = Image.new("L", (W, H), 0)
         ImageDraw.Draw(halo).ellipse([733, 283, 853, 403], fill=90)
         im.paste((200, 200, 214), (0, 0), halo.filter(ImageFilter.GaussianBlur(30)))  # blauer Sonnenhof (Mars)
-        self.draw_figure(d)
         return im
 
     @staticmethod
@@ -126,6 +130,34 @@ class Reel:
         d.polygon([(x + 4, y - 122), (x + 30, y - 122), (x + 32, y), (x + 10, y)], fill=c)
         d.ellipse([x - 70, y - 8, x + 70, y + 10], fill=(96, 50, 30))                           # Schatten
 
+    @staticmethod
+    def draw_suit(d):
+        """Astronaut im Raumanzug, gleiche Position/Groesse wie die Silhouette, Licht von rechts oben (Sonne)."""
+        x, y = 540, FEET
+        lit, shade, dark, boot = (232, 228, 220), (178, 172, 164), (120, 114, 108), (74, 72, 76)
+        d.ellipse([x - 74, y - 8, x + 74, y + 10], fill=(96, 50, 30))                          # Schatten
+        d.rounded_rectangle([x - 50, y - 252, x + 50, y - 136], 14, fill=dark)                 # Rucksack
+        for sx in (-1, 1):                                                                     # Beine + Stiefel
+            xa, xb = (x - 36, x - 4) if sx < 0 else (x + 4, x + 36)
+            d.polygon([(xa, y - 126), (xb, y - 126), (xb + 2 * sx, y - 24), (xa - 2 * sx, y - 24)],
+                      fill=shade if sx < 0 else lit)
+            d.rounded_rectangle([min(xa, xb) - 6, y - 30, max(xa, xb) + 6, y], 6, fill=boot)
+            d.line([(min(xa, xb) + 2, y - 76), (max(xa, xb) - 2, y - 76)], fill=dark, width=3)  # Kniegelenk
+        d.rounded_rectangle([x - 44, y - 252, x + 44, y - 118], 16, fill=lit)                  # Rumpf
+        d.rounded_rectangle([x - 44, y - 252, x - 16, y - 118], 12, fill=shade)
+        d.rectangle([x - 44, y - 134, x + 44, y - 120], fill=dark)                             # Guertel
+        d.rounded_rectangle([x - 18, y - 222, x + 18, y - 192], 5, fill=(96, 108, 130))        # Brustkontrolle
+        d.ellipse([x + 4, y - 214, x + 12, y - 206], fill=ACC)
+        for sx, col in ((-1, shade), (1, lit)):                                               # Arme + Handschuhe
+            d.polygon([(x + 40 * sx, y - 246), (x + 58 * sx, y - 240), (x + 70 * sx, y - 140), (x + 50 * sx, y - 138)],
+                      fill=col)
+            d.ellipse([x + 52 * sx - 13, y - 150, x + 52 * sx + 13 + 6 * sx, y - 122], fill=boot)
+        d.ellipse([x - 36, y - 324, x + 36, y - 244], fill=lit)                                # Helm
+        d.ellipse([x - 36, y - 324, x - 6, y - 244], fill=shade)
+        d.ellipse([x - 26, y - 312, x + 26, y - 262], fill=(196, 146, 58))                     # Goldvisier
+        d.ellipse([x + 4, y - 306, x + 18, y - 290], fill=(250, 226, 170))                     # Glanzpunkt
+        d.rectangle([x - 26, y - 250, x + 26, y - 242], fill=dark)                             # Halsring
+
     def build_frost(self):
         n = fbm(33, h=480, w=270, octaves=6, base=14, wrap=False)
         n = np.asarray(Image.fromarray((n * 255).astype(np.uint8)).resize((W, H), Image.BICUBIC), np.float32) / 255
@@ -134,7 +166,7 @@ class Reel:
         return edge, n
 
     def scene(self, t):
-        if t < LAND:                                              # Anflug: Mars waechst, Ueberblendung auf den Boden
+        if t < START:                                             # (alter Anflug, wird nicht mehr ausgegeben)
             im = self.space.copy()
             z = 0.42 + 2.6 * ease(t / LAND) ** 2
             rgb, m = self.mars
@@ -145,7 +177,7 @@ class Reel:
                 im = Image.blend(im, self.surface, ease((t - LAND + 0.6) / 0.6))
             im.paste(self.head, (0, 0), self.head_m)
             return im
-        im = self.surface.copy()
+        im = self.surface.copy() if t < 12.4 else self.surface_suit.copy()
         a = np.asarray(im, np.float32)
         if 12.4 <= t < 19.4:                                      # Raureif am Bildrand
             edge, n = self.frost
@@ -214,12 +246,12 @@ def main():
     if "--preview" in sys.argv:
         prev = Path(sys.argv[sys.argv.index("--preview") + 1])
         prev.mkdir(parents=True, exist_ok=True)
-        for t in (1.2, 4.0, 8.5, 11.0, 13.5, 15.5, 18.2, 20.5):
+        for t in (START, 3.0, 4.0, 8.5, 11.0, 13.5, 15.5, 18.2, 20.5):
             cinematic(r.frame(t), 0).save(prev / f"{NAME}-{t:04.1f}.png")
         print("preview saved")
         return
-    encode(OUT / f"{NAME}.mp4", r.frame, TOTAL)
-    cinematic(r.frame(4.0), 0).save(OUT / f"{NAME}-cover.png")
+    encode(OUT / f"{NAME}.mp4", lambda t: r.frame(t + START), TOTAL - START)
+    cinematic(r.frame(START), 0).save(OUT / f"{NAME}-cover.png")
     print("cover saved")
 
 

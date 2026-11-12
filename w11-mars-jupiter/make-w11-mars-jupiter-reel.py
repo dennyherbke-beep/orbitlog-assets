@@ -1,4 +1,4 @@
-"""Woche 11, Sa 14.11.2026: Mars-Jupiter-Begegnung (Termin + Handlung, Provokations-Hook "Most people will sleep through THIS").
+"""Woche 11, Sa 14.11.2026: Mars-Jupiter-Begegnung (Termin + Handlung; 12.11.: 2-s-Einstieg mit Planetenkugeln, Provokations-Hook "Most people will sleep through THIS").
 Berechneter Morgenhimmel nach Sueden (50 Grad N, Mo 16.11., 05 UT): Jupiter + Mars als Lichtpunkte, Regulus, Algieba,
 Baumgrenze. Dann Zoom (echter Winkelmassstab, Sterngrenze steigt) bis ins Fernglas-Sichtfeld (7 Grad): beide Planeten
 im selben Bild, Jupiter mit vier Lichtpunkten (Galileische Monde, Stellung illustrativ).
@@ -24,7 +24,7 @@ from PIL import Image, ImageDraw, ImageFilter
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from brandkit import ACC, FG, SEC, S
-from reelkit import stext, ease, header_band, frame_save, downscale, encode, cinematic
+from reelkit import stext, ease, header_band, frame_save, downscale, encode, cinematic, new_frame, body_sprite, paste_center
 
 OUT = Path(__file__).resolve().parent
 NAME = "w11-mars-jupiter"
@@ -34,17 +34,19 @@ JUP = (53.0, 166.8)                              # (alt, az)
 MARS = (54.05, 165.9)
 REGULUS = (50.5, 161.1)
 ALGIEBA = (57.4, 153.0)
-ZOOM0, ZOOM1 = 10.4, 12.6
-SAVE_AT = 19.6
-TOTAL = 22.2
+T_JUP, T_MARS = 1.8, 3.4                         # 12.11.: Mittelteil verdichtet (Denny: zu lang)
+ZOOM0, ZOOM1 = 7.0, 8.8
+SAVE_AT = 14.2
+TOTAL = 16.8
+INTRO, XF = 2.0, 0.4                             # 12.11.: Einstieg mit beiden Planeten als Kugeln (erstes Bild zaehlt)
 
 BEATS = [(0.0, "Monday, Nov 16 · before sunrise", "Look SOUTH, about halfway up.", FG),
-         (3.0, "The brightest dot: JUPITER.", "", FG),
-         (5.4, "The orange one just above: MARS.", "", FG),
-         (7.8, "Only 1.2° apart.", "About a pinky's width at arm's length.", ACC),
+         (T_JUP, "The brightest dot: JUPITER.", "", FG),
+         (T_MARS, "The orange one just above: MARS.", "", FG),
+         (5.0, "Only 1.2° apart.", "About a pinky's width at arm's length.", ACC),
          (ZOOM0, "Now grab binoculars.", "", FG),
          (ZOOM1 + 0.2, "Both planets in ONE view.", "Those dots next to Jupiter are its moons.", ACC),
-         (16.4, "Best: 5-6 a.m. Monday.", "Sat to Wed mornings work too.", ACC)]
+         (11.8, "Best: 5-6 a.m. Monday.", "Sat to Wed mornings work too.", ACC)]
 
 
 def view(t):
@@ -86,6 +88,11 @@ class Reel:
         self.ridge = 18 * np.sin(x / 210) + 9 * np.sin(x / 63 + 1.3) + trees
         ys = np.arange(H, dtype=np.float32)[:, None]
         self.ys = ys
+        sky, _ = new_frame(41)
+        self.intro_bg = downscale(sky, W, H)
+        # scheinbare Groessen 16.11.: Jupiter ~43" (4,6 AE), Mars ~9" (1,0 AE) -> Verhaeltnis ~4,6; Licht von Osten = links
+        self.jup = body_sprite("jupiter", 500, lon0=200, light=(-0.25, -0.05, 0.96))
+        self.mars = body_sprite("mars", 109, lon0=60, light=(-0.45, -0.10, 0.88))
         self.end = downscale(frame_save(["Save it for", "Monday, 5 a.m."],
                                         sub="Send it to the friend who'd get up with you"), W, H)
 
@@ -150,19 +157,45 @@ class Reel:
         im.paste(self.head, (0, 0), self.head_m)
         return im, (jx, jy), (mx, my), k
 
+    def intro(self, t):
+        """Einstieg: Mars (links oben, wie am Himmel) und Jupiter als Kugeln, vergroessert, langsamer Zoom."""
+        z = 1 + 0.05 * t / INTRO
+        im = self.intro_bg.copy()
+        for spr, x, y in [(self.mars, 330, 900), (self.jup, 640, 1210)]:
+            rgb, m = spr
+            sz = (int(rgb.width * z), int(rgb.height * z))
+            paste_center(im, (rgb.resize(sz, Image.BICUBIC), m.resize(sz, Image.BICUBIC)),
+                         W / 2 + (x - W / 2) * z, 1050 + (y - 1050) * z)
+        im.paste(self.head, (0, 0), self.head_m)
+        stext(im, "Mars meets Jupiter", 50, 560, ACC)
+        stext(im, "Monday morning, Nov 16", 34, 628, FG)
+        stext(im, "Mars", 34, 800, (255, 170, 120))
+        stext(im, "Jupiter", 34, 1490, FG)
+        stext(im, "Illustration · both enlarged, true size ratio", 22, 1700, SEC, bold=False)
+        stext(im, "Send this to the friend who'd get up with you", 34, 1740, FG)
+        return im
+
+    def reel_frame(self, t):
+        """Gesamtablauf: Einstieg (INTRO s), dann der bisherige Ablauf ab 0."""
+        if t < INTRO - XF:
+            return self.intro(t)
+        if t < INTRO:
+            return Image.blend(self.intro(t), self.frame(0.0), ease((t - INTRO + XF) / XF))
+        return self.frame(t - INTRO)
+
     def frame(self, t):
         if t >= SAVE_AT:
             return Image.blend(self.frame(SAVE_AT - 1e-3), self.end, ease((t - SAVE_AT) / 0.35))
         im, (jx, jy), (mx, my), k = self.scene(t)
         d = ImageDraw.Draw(im)
         st = dict(stroke_width=3, stroke_fill=(8, 10, 14))
-        if 3.0 <= t < ZOOM0:                                                          # Beschriftungen
-            a = ease((t - 3.0) / 0.3)
+        if T_JUP <= t < ZOOM0:                                                        # Beschriftungen
+            a = ease((t - T_JUP) / 0.3)
             c = tuple(int(v * a) for v in FG)
             d.line([(jx + 14, jy + 8), (jx + 120, jy + 70)], fill=c, width=2)
             d.text((jx + 126, jy + 56), "Jupiter", font=_f(32), fill=c, **st)
-        if 5.4 <= t < ZOOM0:
-            a = ease((t - 5.4) / 0.3)
+        if T_MARS <= t < ZOOM0:
+            a = ease((t - T_MARS) / 0.3)
             c = tuple(int(v * a) for v in (255, 170, 120))
             d.line([(mx - 4, my - 8), (mx + 30, my - 110)], fill=c, width=2)
             d.text((mx + 4, my - 156), "Mars", font=_f(32), fill=c, **st)
@@ -194,12 +227,12 @@ def main():
     if "--preview" in sys.argv:
         prev = Path(sys.argv[sys.argv.index("--preview") + 1])
         prev.mkdir(parents=True, exist_ok=True)
-        for t in (1.5, 6.5, 9.0, 11.5, 14.0, 17.5):
-            cinematic(r.frame(t), 0).save(prev / f"{NAME}-{t:04.1f}.png")
+        for t in (0.0, 2.5, 6.0, 8.0, 10.5, 14.5):
+            cinematic(r.reel_frame(t), 0).save(prev / f"{NAME}-{t:04.1f}.png")
         print("preview saved")
         return
-    encode(OUT / f"{NAME}.mp4", r.frame, TOTAL)
-    cinematic(r.frame(14.0), 0).save(OUT / f"{NAME}-cover.png")
+    encode(OUT / f"{NAME}.mp4", r.reel_frame, TOTAL + INTRO)
+    cinematic(r.intro(1.0), 0).save(OUT / f"{NAME}-cover.png")
     print("cover saved")
 
 
